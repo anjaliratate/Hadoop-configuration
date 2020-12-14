@@ -1,0 +1,72 @@
+- hosts: namenode
+  vars_prompt:
+    - name: namenode_dir
+      private: no
+      prompt: "Enter the name of namenode directory"
+
+  tasks:
+  - name: copy hadoop software
+    copy:
+      src: /root/hadoop-1.2.1-1.x86_64.rpm
+      dest: /root/
+
+  - name: copy jdk software
+    copy:
+      src: /root/jdk-8u171-linux-x64.rpm
+      dest: /root/
+
+  - name: install jdk
+    shell: "rpm -ivh jdk-8u171-linux-x64.rpm"
+    ignore_errors: True
+
+  - name: install hadoop
+    shell: "rpm -ivh hadoop-1.2.1-1.x86_64.rpm --force"
+    ignore_errors: True
+
+  - name: create namenode directory
+    file:
+      state: directory
+      path: "{{ namenode_dir }}"
+
+  - name: configure hdfs-site.xml
+    blockinfile:
+      path: "/etc/hadoop/hdfs-site.xml"
+      insertafter: "<configuration>"
+      block:
+        <property>
+        <name>dfs.name.dir</name>
+        <value>{{ namenode_dir }}</value>
+        </property>
+
+  - name: configure core-site.xml
+    blockinfile:
+      path: "/etc/hadoop/core-site.xml"
+      insertafter: "<configuration>"
+      block:
+        <property>
+        <name>fs.default.name</name>
+        <value>hdfs://0.0.0.0:9001</value>
+        </property>
+
+  - name: format namenode
+    shell: "echo Y | hadoop namenode -format"
+
+  - name: start namenode
+    shell: "hadoop-daemon.sh start namenode"
+
+  - name: jps
+    shell: "jps"
+
+  - name: disable firewall
+    shell: "systemctl disable firewalld"
+
+  - name: setenforce to 0
+    shell: "setenforce 0"
+
+  - name: cluster report
+    shell: "hadoop dfsadmin -report"
+    register: x
+
+  - debug:
+      var: x
+

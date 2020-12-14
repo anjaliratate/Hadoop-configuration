@@ -1,0 +1,75 @@
+- hosts: datanode
+  vars_prompt:
+  - name: datanode_dir
+    private: no
+    prompt: "Enter the name of datanode directory"
+    
+  - name: namenode_IP
+    private: no
+    prompt: "Enter namenode IP"
+
+  tasks:
+  - name: copy hadoop software
+    copy:
+      src: /root/hadoop-1.2.1-1.x86_64.rpm
+      dest: /root/
+
+  - name: copy jdk software
+    copy:
+      src: /root/jdk-8u171-linux-x64.rpm
+      dest: /root/
+
+  - name: install jdk
+    shell: "rpm -ivh jdk-8u171-linux-x64.rpm"
+    ignore_errors: True
+
+  - name: install hadoop
+    shell: "rpm -ivh hadoop-1.2.1-1.x86_64.rpm --force"
+    ignore_errors: True
+
+  - name: create datanode directory
+    file:
+      state: directory
+      path: "{{ datanode_dir }}"
+
+  - name: configure hdfs-site.xml
+    blockinfile:
+      path: "/etc/hadoop/hdfs-site.xml"
+      insertafter: "<configuration>"
+      block:
+        <property>
+        <name>dfs.data.dir</name>
+        <value>{{ datanode_dir }}</value>
+        </property>
+
+  - name: configure core-site.xml
+    blockinfile:
+      path: "/etc/hadoop/core-site.xml"
+      insertafter: "<configuration>"
+      block:
+        <property>
+        <name>fs.default.name</name>
+        <value>hdfs://{{ namenode_IP }}:9001</value>
+        </property>
+
+  - name: start datanode
+    shell: "hadoop-daemon.sh start datanode"
+
+  - name: jps
+    shell: "jps"
+    register: y
+
+  - debug:
+      var: y
+
+  - firewalld:
+      port: "9001/tcp"
+      state: enabled
+      permanent: yes
+
+  - name: cluster report
+    shell: "hadoop dfsadmin -report"
+    register: x
+
+  - debug:
+      var: x
